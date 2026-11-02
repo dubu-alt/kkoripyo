@@ -3,8 +3,15 @@ name: CI/CD
 on:
   push:
     branches: [main]
+    paths: ["kkoripyo-be/**", ".github/workflows/be-ci-cd.yml"]
   pull_request:
+    paths: ["kkoripyo-be/**", ".github/workflows/be-ci-cd.yml"]
   workflow_dispatch:
+
+# 모노레포: 백엔드 폴더에서 실행
+defaults:
+  run:
+    working-directory: kkoripyo-be
 
 jobs:
   test:
@@ -16,7 +23,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: kkoripyo-be/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
