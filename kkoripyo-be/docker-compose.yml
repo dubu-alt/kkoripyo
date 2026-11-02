@@ -1,0 +1,24 @@
+services:
+  api:
+    build: .
+    image: kkoripyo-be:latest
+    container_name: kkoripyo-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/kkoripyo.db}
+      CORS_ORIGINS: '${CORS_ORIGINS:-["*"]}'
+      EVERYINFRA_API_KEY: ${EVERYINFRA_API_KEY:-}
+      OCR_SERVER_URL: ${OCR_SERVER_URL:-https://ocr.purplecodelabs.com}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6.1-sol}
+      OPENAI_REASONING_EFFORT: ${OPENAI_REASONING_EFFORT:-high}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://kkoripyo.purplecodelabs.com}
+      DEMO_ENABLED: ${DEMO_ENABLED:-false}
+    volumes:
+      - kkoripyo-data:/app/data
+
+volumes:
+  kkoripyo-data:

@@ -1,0 +1,295 @@
+"""에이전트가 호출하는 도구 모음.
+
+LLM은 각 도구의 이름·설명(docstring)·입력 스키마(args_schema)만 보고 어떤 도구를 부를지 고른다.
+그래서 설명에 "언제 쓰는지 / 무엇을 돌려주는지 / 비용"을 분명히 적는다.
+
+도구는 결과를 JSON 문자열로 돌려준다. 실패해도 예외를 던지지 않고 {"error": ...}를 돌려줘서
+에이전트가 실패를 보고 다음 행동을 정할 수 있게 한다.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Awaitable, Callable
+from typing import Any, Literal
+
+from langchain_core.tools import tool
+from langgraph.config import get_stream_writer
+from pydantic import BaseModel, Field
+
+from app.collect import instagram as ig
+from app.integrations import ocr
+from app.integrations.everyinfra import EveryInfraClient, EveryInfraError
+
+USERNAME_FIELD = Field(
+    description="인스타그램 아이디. @ 없이 (예: nasa). 프로필 주소를 넣어도 된다.",
+    min_length=1,
+    max_length=100,
+)
+
+
+REASON_FIELD = Field(
+    "",
+    max_length=200,
+    description=(
+        "의뢰인 화면의 진행 상황에 그대로 보여줄 한 문장. 무엇을 찾으려고, 앞서 본 어떤 근거 때문에 이 계정·게시물을 "
+        "보는지 쓴다. 대상 아이디와 근거(횟수·날짜·인용)를 넣는다. 예: '@friend_a가 당신 게시물 3개에 "
+        "댓글을 남긴 가장 가까운 친구라, 이 친구가 팔로우하는 학과 계정에서 당신의 학교를 확인합니다'"
+    ),
+)
+
+
+def make_client() -> EveryInfraClient:
+    """테스트에서 가짜 클라이언트로 바꿔 끼울 수 있게 함수로 둔다."""
+    return EveryInfraClient()
+
+
+async def _run(fn: Callable[[EveryInfraClient], Awaitable[Any]]) -> str:
+    try:
+        async with make_client() as ei:
+            data = await fn(ei)
+    except (EveryInfraError, ValueError) as e:
+        data = {"error": str(e)}
+    return json.dumps(data, ensure_ascii=False)
+
+
+# ---------- 입력 스키마 ----------
+
+
+class UsernameArgs(BaseModel):
+    username: str = USERNAME_FIELD
+    reason: str = REASON_FIELD
+
+
+class CollectArgs(BaseModel):
+    username: str = USERNAME_FIELD
+    posts_limit: int = Field(30, ge=1, le=ig.MAX_POSTS, description="가져올 최근 게시물 수")
+
+
+class FollowArgs(BaseModel):
+    username: str = USERNAME_FIELD
+    limit: int = Field(ig.MAX_FOLLOW, ge=1, le=ig.MAX_FOLLOW, description="최대 인원")
+    reason: str = REASON_FIELD
+
+
+class PostsArgs(BaseModel):
+    username: str = USERNAME_FIELD
+    limit: int = Field(12, ge=1, le=ig.MAX_POSTS, description="가져올 최근 게시물 수")
+    reason: str = REASON_FIELD
+
+
+class CommentsArgs(BaseModel):
+    post_url: str = Field(description="게시물 주소. 예: https://www.instagram.com/p/DdoszTJGzR8/")
+    limit: int = Field(ig.MAX_COMMENTS, ge=1, le=ig.MAX_COMMENTS, description="최대 댓글 수")
+    reason: str = REASON_FIELD
+
+
+class BlurPhoto(BaseModel):
+    post_id: str = Field(description="가릴 사진이 있는 게시물 ID (예: DdoszTJGzR8)")
+    reason: str = Field(
+        max_length=80,
+        description="고객에게 보여줄 한 줄 이유. 예: '수료증에 실명 홍길동이 그대로 보입니다'",
+    )
+
+
+class BlurArgs(BaseModel):
+    photos: list[BlurPhoto] = Field(min_length=1, max_length=4, description="가릴 사진 (최대 4장)")
+
+
+# 인스타그램 게시물 주소의 /p/<ID>/ 부분
+POST_ID_RE = re.compile(r"[A-Za-z0-9_-]{5,40}")
+
+# 발견 항목 종류 (화면의 항목 카드와 같은 키)
+Category = Literal[
+    "name",
+    "birthday",
+    "age",
+    "school",
+    "workplace",
+    "region",
+    "close_friend",
+    "family",
+    "phone",
+    "email",
+    "blood_type",
+    "other",
+]
+CATEGORY_LABEL = {
+    "name": "이름",
+    "birthday": "생일",
+    "age": "나이",
+    "school": "학교·학과",
+    "workplace": "직장",
+    "region": "사는 곳",
+    "close_friend": "친한 친구",
+    "family": "가족",
+    "phone": "전화번호",
+    "email": "이메일",
+    "blood_type": "혈액형",
+    "other": "그 밖의 신상",
+}
+
+
+class Finding(BaseModel):
+    category: Category = Field(description="항목 종류")
+    value: str = Field(
+        min_length=1,
+        max_length=60,
+        description="찾아낸 값, 짧게. 예: '김민지', '2월 5일', '2003년생', '단국대 경영학과', "
+        "'경기 남부(수원 인근)', '@sohee_0205 (소희)'",
+    )
+    evidence: str = Field(
+        max_length=100, description="근거 한 줄. 예: '2024-02-05 생일 축하 댓글 3개'"
+    )
+    post_ids: list[str] = Field(
+        default_factory=list,
+        max_length=5,
+        description="근거가 된 게시물 ID (자료의 [대괄호] 안 값, 당신·친구 게시물 모두). 최대 5개, 중요한 순서로",
+    )
+    certainty: Literal["confirmed", "estimated"] = Field(
+        description="confirmed: 직접 적혀 있거나 여러 근거가 일치 / estimated: 강한 근거로 조합한 결론"
+    )
+
+
+class FindingArgs(BaseModel):
+    findings: list[Finding] = Field(min_length=1, max_length=10)
+
+
+class FinishArgs(BaseModel):
+    summary: str = Field(max_length=200, description="지금까지 확인한 범위 한 줄 (내부용)")
+
+
+# ---------- 도구 ----------
+
+
+@tool(args_schema=CollectArgs)
+async def collect_account(username: str, posts_limit: int = 30) -> str:
+    """분석 대상 계정의 기본 데이터를 한 번에 모두 가져온다. 분석을 시작할 때 가장 먼저 호출한다.
+
+    내부에서 프로필·팔로워·팔로잉·게시물을 동시에 요청하고, 게시물마다 댓글도 동시에 요청한다.
+    반환: {profile, followers{count,maybe_more,users}, following{...},
+           posts[{post_id, media_id, url, posted_at, text, hashtags, mentions, location,
+                  image_url, like_count, comment_count, comments[{username, text, posted_at}]}],
+           coverage{항목: [받은 수, 프로필 표시 수]}, errors[]}
+    좋아요 누른 사람 목록은 포함되지 않는다. 비공개 계정은 대부분 비어 있다.
+    """
+    return await _run(lambda ei: ig.collect_account(ei, username, posts_limit=posts_limit))
+
+
+@tool(args_schema=UsernameArgs)
+async def get_profile(username: str, reason: str = "") -> str:
+    """계정 하나의 프로필(표시 이름, 소개글 bio, 팔로워·팔로잉·게시물 수, 비공개 여부)만 가져온다.
+    주변 계정이 어떤 사람/기관인지 가볍게 확인할 때 쓴다. 비용이 가장 싸다."""
+    return await _run(lambda ei: ig.fetch_profile(ei, username))
+
+
+@tool(args_schema=FollowArgs)
+async def get_followers(username: str, limit: int = ig.MAX_FOLLOW, reason: str = "") -> str:
+    """계정의 팔로워 목록 [{username, name, user_id, is_private}]을 가져온다.
+    분석 대상 본인은 collect_account에 이미 들어 있으니 다른 계정에만 쓴다."""
+    return await _run(lambda ei: ig.fetch_followers(ei, username, limit))
+
+
+@tool(args_schema=FollowArgs)
+async def get_following(username: str, limit: int = ig.MAX_FOLLOW, reason: str = "") -> str:
+    """계정이 팔로우하는 목록 [{username, name, user_id, is_private}]을 가져온다.
+    분석 대상 본인은 collect_account에 이미 들어 있으니 다른 계정에만 쓴다."""
+    return await _run(lambda ei: ig.fetch_following(ei, username, limit))
+
+
+@tool(args_schema=PostsArgs)
+async def get_user_posts(username: str, limit: int = 12, reason: str = "") -> str:
+    """다른 계정(예: 댓글을 자주 단 친구, 태그된 계정, 가족)의 최근 게시물을 가져온다.
+    사진에 적힌 글자(ocr_text)도 함께 읽어 온다.
+    반환: [{post_id, url, posted_at, text, hashtags, mentions, location, ocr_text,
+           like_count, comment_count}]. 댓글은 포함하지 않는다(필요하면 get_post_comments).
+    분석 대상과 연결 단서가 있는 계정에만 쓴다. 수십 초 걸릴 수 있다."""
+
+    async def fetch(ei: EveryInfraClient) -> list[dict]:
+        posts = await ig.fetch_user_posts(ei, username, limit)
+        try:
+            await ocr.ocr_posts(posts)
+        except Exception:
+            pass  # 사진 글자를 못 읽어도 게시물은 돌려준다
+        for p in posts:
+            p.pop("image_url", None)  # 응답을 짧게 (글자는 이미 읽었음)
+            p.pop("video_url", None)
+        return posts
+
+    return await _run(fetch)
+
+
+@tool(args_schema=CommentsArgs)
+async def get_post_comments(post_url: str, limit: int = ig.MAX_COMMENTS, reason: str = "") -> str:
+    """게시물 하나의 댓글 [{username, text, posted_at, like_count, mentions}]을 가져온다.
+    get_user_posts로 본 다른 계정 게시물의 댓글을 더 보고 싶을 때 쓴다."""
+    return await _run(lambda ei: ig.fetch_post_comments(ei, post_url, limit))
+
+
+# 에이전트에게 주는 도구. 분석 대상 본인 수집(collect_account)은 그래프의 collect 노드에서
+# 서버가 먼저 실행하므로 여기에는 넣지 않는다. (도구 정의는 명세 1절 6종 그대로 유지)
+@tool(args_schema=BlurArgs)
+async def select_photos_to_blur(photos: list[BlurPhoto]) -> str:
+    """사진 속 글자로 개인정보가 드러난 게시물 사진을 골라, 리포트 뒤에 블러 처리한 사진을 보여주게 한다.
+
+    언제 쓰나: 요약의 '사진 속 글자'에 실명·전화번호·학교·학번·주소·명찰·수료증 등이 보이는 게시물이 있을 때.
+    최종 리포트를 쓰기 직전에 한 번만 부른다. 최대 4장, 위험이 큰 순서로.
+    서버가 사진 속 글자 부분을 블러 처리해 '이 사진으로 교체하세요'로 보여준다(글자만 가려지고 얼굴은 그대로).
+    **개인정보가 사진 속에 글자로 직접 적혀 있을 때만** 고른다(요약의 '사진 속 글자'에 그 값이 있어야 함).
+    캡션·날짜·분위기(생일 케이크, 장소, 얼굴)로만 알 수 있는 정보는 블러로 가려지지 않으므로 고르지 않는다.
+    """
+    chosen = [p.post_id if isinstance(p, BlurPhoto) else p.get("post_id") for p in photos]
+    return json.dumps({"ok": True, "selected": chosen[:4]}, ensure_ascii=False)
+
+
+@tool(args_schema=FindingArgs)
+async def record_finding(findings: list[Finding]) -> str:
+    """새로 확정하거나 강하게 추정한 개인정보를 즉시 기록한다. 고객 화면의 항목 카드에 바로 표시된다.
+
+    언제 쓰나: 사실 하나를 알아낸 그 순간마다(최종 리포트까지 기다리지 않는다). 같은 항목을 더 정확히
+    알게 되면 다시 기록한다(예: '대학생' → '단국대 경영학과'). 약한 근거뿐인 것은 기록하지 않는다.
+    """
+    rows = [f if isinstance(f, Finding) else Finding(**f) for f in findings]
+    try:
+        writer = get_stream_writer()
+    except Exception:
+        writer = None
+    for f in rows:
+        links = [
+            {"post_id": pid, "url": f"https://www.instagram.com/p/{pid}/"}
+            for pid in dict.fromkeys(f.post_ids)
+            if POST_ID_RE.fullmatch(pid)
+        ]
+        if writer:
+            writer(
+                {
+                    "type": "finding",
+                    "category": f.category,
+                    "label": CATEGORY_LABEL[f.category],
+                    "value": f.value,
+                    "evidence": f.evidence,
+                    "certainty": f.certainty,
+                    "links": links,
+                }
+            )
+    return json.dumps({"ok": True, "recorded": len(rows)}, ensure_ascii=False)
+
+
+@tool(args_schema=FinishArgs)
+async def finish_investigation(summary: str) -> str:
+    """조사를 마치고 최종 리포트 단계로 넘어가겠다고 알린다. 서버가 빠진 항목을 확인해,
+    더 찾아볼 방법이 남아 있으면 다시 조사하라고 돌려보낼 수 있다. 이 도구는 다른 도구와 함께 부르지 않는다."""
+    return json.dumps({"ok": True}, ensure_ascii=False)
+
+
+TOOLS = [
+    get_profile,
+    get_followers,
+    get_following,
+    get_user_posts,
+    get_post_comments,
+    select_photos_to_blur,
+    record_finding,
+    finish_investigation,
+]
