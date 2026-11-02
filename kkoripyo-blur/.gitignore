@@ -1,0 +1,11 @@
+# 설치 스크립트가 받는 ComfyUI·커스텀 노드·모델 (용량이 커서 저장소에 넣지 않음)
+ComfyUI/
+models/
+*.safetensors
+*.bin
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
