@@ -1,0 +1,29 @@
+/* 꼬리표 디자인 토큰 · 블랙 + 라이트그레이, 경고는 빨강 한 가지 */
+@theme {
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-bg: #09090a;
+  --color-bg-2: #111113;
+  --color-surface: rgb(255 255 255 / 0.035);
+  --color-surface-2: rgb(255 255 255 / 0.06);
+  --color-surface-3: rgb(255 255 255 / 0.1);
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-2: rgb(255 255 255 / 0.16);
+  --color-fg: #ededf0;
+  --color-fg-2: #b9b9c0;
+  --color-muted: #7d7d86;
+  --color-faint: #55555d;
+  --color-alert: #ff3b30;
+  --color-alert-2: #ff6a5f;
+  --color-alert-soft: rgb(255 59 48 / 0.12);
+  --color-alert-line: rgb(255 59 48 / 0.45);
+  --color-warn: #e8a33d;
+  --color-low: #8f8f99;
+  --color-ok: #8fd1a8;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}

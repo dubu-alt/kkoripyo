@@ -1,0 +1,116 @@
+[
+  {
+    "mode": "redesign",
+    "depth": "polish",
+    "scope": "app",
+    "shape": "app screen",
+    "theme": "console",
+    "axes": "dark/grotesk-sans/chromatic-amber",
+    "hero": "not applicable",
+    "nav": "existing report/streaming switcher",
+    "footer": "existing playback controls",
+    "imagery": "existing local licensed mock coffee photograph",
+    "photos": ["Espresso coffee pouring from retro espresso machine.jpg"],
+    "entry": "src/pages/streaming-page.tsx",
+    "fingerprint": "privacy-streaming-console-polish",
+    "sections": [
+      "analysis request",
+      "sequential warnings",
+      "evidence disclosures",
+      "analysis summary",
+      "playback controls"
+    ],
+    "signature": "sequential explanations with accumulating warning summary",
+    "waived": [],
+    "prompt": "Review and polish the existing streaming version using Hallmark; no commit; no followup questions",
+    "findings": [
+      "responsive height: resolved",
+      "unique sidebar labels: resolved",
+      "repeated risk/detection prose: resolved",
+      "photo credit gate76: resolved",
+      "visible mobile replay: resolved"
+    ],
+    "kept": {
+      "links": "13/13",
+      "handlers": "8/8",
+      "headings": "8/8"
+    },
+    "verification": {
+      "finishReview": "subagent ship, all5resolved",
+      "browser": "stop/resume/restart, errors, original report, mobile disclosure passed",
+      "viewport": "document height equals viewport at320x640,375x812,768x900,1280x800,1920x1080; no outer scroll",
+      "render": "1 known false positive gate73 from native scroll clipping; no clean mechanical render pass claimed"
+    },
+    "copyChanges": [
+      "Removed repeated parenthetical detection/severity from streamed paragraphs; badges retain both, copied report includes metadata",
+      "처음부터 재생 → 다시 재생 for visible mobile label"
+    ],
+    "committed": false,
+    "date": "2026-10-31"
+  },
+  {
+    "scope": "app",
+    "shape": "app screen",
+    "theme": "console",
+    "axes": "dark/grotesk-sans/chromatic-amber",
+    "hero": "none, app scope",
+    "nav": "report/conversation comparison",
+    "footer": "composer privacy note",
+    "imagery": "reused local licensed sample photograph in evidence disclosures",
+    "photos": ["Espresso coffee pouring from retro espresso machine.jpg"],
+    "entry": "src/pages/streaming-page.tsx",
+    "fingerprint": "privacy-conversation-console",
+    "sections": [
+      "user request",
+      "streaming six warnings",
+      "evidence disclosures",
+      "completed summary",
+      "mock followup composer"
+    ],
+    "signature": "streaming explanation paired with an accumulating evidence summary",
+    "waived": [],
+    "prompt": "Add a GPT-like mock streaming version alongside the existing privacy report so both can be compared",
+    "verification": {
+      "staticSloplint": "0 FAIL, 0 REFLEX, 0 WARN",
+      "browser": "incremental text, stop/resume, reset, interrupted stream retry, followup/history, IME, disclosures, responsive widths, original report and 404 passed",
+      "reactReview": "subagent, no actionable findings",
+      "render": "field boundary corrected; gate73 independently verified false positive from nested scroll clipping; F18 is existing shadcn data-slot button"
+    },
+    "material": "same fictional account, warnings and scores as the report version; no external request or AI generation",
+    "date": "2026-10-31",
+    "mode": "build"
+  },
+  {
+    "scope": "app",
+    "shape": "app screen",
+    "theme": "console",
+    "axes": "dark/grotesk-sans/chromatic-amber",
+    "hero": "none, app scope",
+    "nav": "compact report toolbar",
+    "footer": "source credit",
+    "imagery": "local licensed coffee photo, fictional captions and location-overlay comparison",
+    "photos": ["Espresso coffee pouring from retro espresso machine.jpg"],
+    "entry": "src/pages/home-page.tsx",
+    "fingerprint": "privacy-evidence-queue-console",
+    "sections": [
+      "account",
+      "score and category chart",
+      "filterable warning queue",
+      "evidence detail",
+      "protective actions"
+    ],
+    "signature": "connected exposure evidence",
+    "waived": ["39b: multiline warning selection row"],
+    "prompt": "Korean Instagram privacy result screen, mock backend, dark restrained accents",
+    "sweep": {
+      "floorFails": 0,
+      "warnings": 0,
+      "waived": 1,
+      "answered": 1,
+      "renderedWidths": [320, 375, 414, 768, 1024, 1280, 1440, 1920]
+    },
+    "finishReview": "subagent: ship; no additional actionable findings",
+    "date": "2026-10-31",
+    "mode": "build"
+  }
+]

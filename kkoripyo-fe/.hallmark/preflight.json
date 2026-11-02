@@ -1,0 +1,20 @@
+{
+  "scanned": "2026-10-31",
+  "findings": {
+    "fonts": "Geist Variable locally installed, src/index.css:6",
+    "palette": "shadcn semantic tokens, src/index.css:14; no locked design system",
+    "framework": "React 19.3.1 / Vite 8.3.5, package.json:27",
+    "routing": "Existing home and not-found routes, src/App.tsx:8",
+    "product": "Existing /streaming app screen, src/pages/streaming-page.tsx:150; reviewed in place with the Console theme preserved"
+  },
+  "preserve": [
+    "React Router routes",
+    "TanStack Query provider",
+    "existing shadcn Button",
+    "local Geist font",
+    "existing uncommitted .agents documentation edits"
+  ],
+  "introduce": [
+    "Hallmark polish of streaming screen only: responsive viewport height, unique warning destinations, concise prose, photograph attribution, visible mobile replay label"
+  ]
+}
