@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import secrets
@@ -54,14 +55,14 @@ class BlurClient:
         self,
         base_url: str | None = None,
         *,
-        timeout: float = 300.0,
+        timeout: float | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ):
-        url = base_url if base_url is not None else get_settings().blur_server_url
+        settings = get_settings()
+        url = base_url if base_url is not None else settings.blur_server_url
         self.enabled = bool(url)
-        self._http = httpx.AsyncClient(
-            base_url=url or "http://blur.invalid", timeout=timeout, transport=transport
-        )
+        self.timeout = timeout if timeout is not None else settings.blur_timeout
+        self._http = httpx.AsyncClient(base_url=url or "http://blur.invalid", transport=transport)
 
     async def __aenter__(self) -> BlurClient:
         return self
@@ -72,31 +73,40 @@ class BlurClient:
     async def blur(self, images: list[dict]) -> list[dict]:
         """[{image_id, image_url}] → [{image_id, image_url, blurred_image, error}].
 
-        서버가 꺼져 있어도 예외를 던지지 않고 이미지마다 error를 남긴다.
+        서버가 꺼져 있거나 timeout초 안에 끝나지 않아도 예외를 던지지 않고 이미지마다 error를 남긴다.
         """
         images = images[:MAX_IMAGES]
         if not images:
             return []
         if not self.enabled:
             return [{**i, "blurred_image": None, "error": "blur_disabled"} for i in images]
+        # 순위대로 한 장씩 보내, 시간 안에 끝난 앞 순위 사진은 살리고 나머지만 건너뛴다
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.timeout
+        out = []
+        for i in images:
+            try:
+                out.append(await asyncio.wait_for(self._one(i), max(0, deadline - loop.time())))
+            except TimeoutError:
+                out.append({**i, "blurred_image": None, "error": "blur_timeout"})
+        return out
+
+    async def _one(self, image: dict) -> dict:
         try:
-            res = await self._http.post("/blur/urls", json={"images": images})
+            # 전체 시간 상한은 blur()의 asyncio.wait가 건다
+            res = await self._http.post("/blur/urls", json={"images": [image]}, timeout=None)
             res.raise_for_status()
             rows = res.json().get("images") or []
         except (httpx.HTTPError, ValueError) as e:
-            reason = f"blur_unavailable: {type(e).__name__}"
-            return [{**i, "blurred_image": None, "error": reason} for i in images]
-        by_id = {r.get("image_id"): r for r in rows}
-        return [
-            {
-                **i,
-                "blurred_image": (by_id.get(i["image_id"]) or {}).get("blurred_image"),
-                "error": (by_id.get(i["image_id"]) or {}).get("error")
-                if i["image_id"] in by_id
-                else "no_result",
+            return {
+                **image,
+                "blurred_image": None,
+                "error": f"blur_unavailable: {type(e).__name__}",
             }
-            for i in images
-        ]
+        row = next((r for r in rows if r.get("image_id") == image["image_id"]), None)
+        if row is None:
+            return {**image, "blurred_image": None, "error": "no_result"}
+        return {**image, "blurred_image": row.get("blurred_image"), "error": row.get("error")}
 
 
 def make_blur_client() -> BlurClient:

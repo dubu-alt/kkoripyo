@@ -493,6 +493,31 @@ def test_blur_server_down_still_finishes(monkeypatch):
     assert result["blurred"] == []  # 가리지 못한 사진은 보여주지 않는다
 
 
+def test_slow_blur_is_skipped_after_timeout():
+    from app.integrations import blur
+
+    async def handler(request):
+        images = json.loads(request.content)["images"]
+        if images[0]["image_id"] == "slow_0":
+            await asyncio.sleep(5)
+        out = [{**i, "blurred_image": "data:image/jpeg;base64,QUJD", "error": None} for i in images]
+        return httpx.Response(200, json={"images": out})
+
+    async def go():
+        transport = httpx.MockTransport(handler)
+        async with blur.BlurClient("http://blur.test", timeout=0.2, transport=transport) as c:
+            return await c.blur(
+                [
+                    {"image_id": "fast_0", "image_url": "http://x/a.jpg"},
+                    {"image_id": "slow_0", "image_url": "http://x/b.jpg"},
+                ]
+            )
+
+    fast, slow = asyncio.run(go())
+    assert fast["blurred_image"] and fast["error"] is None  # 시간 안에 끝난 사진은 살린다
+    assert slow["blurred_image"] is None and slow["error"] == "blur_timeout"
+
+
 def test_rank_friends_by_comments_and_mentions_skips_private_and_self():
     data = {
         "username": "me",

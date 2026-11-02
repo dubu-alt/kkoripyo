@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     # 사진 속 글자 블러 서버 (services/blur). 비우면 블러 없이 리포트만
     blur_server_url: str = "https://blur.purplecodelabs.com"
+    # 블러를 기다리는 최대 시간(초). 넘으면 블러를 건너뛰고 진단을 계속한다 (맥 CPU처럼 느린 곳은 짧게)
+    blur_timeout: float = 300.0
 
     # 에이전트용 LLM
     # 이 서버가 외부에서 보이는 주소. 가린 사진을 OCR 서버가 다시 읽어 검증할 때 쓴다 (비우면 그 검증 생략)

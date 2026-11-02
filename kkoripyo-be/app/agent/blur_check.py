@@ -91,6 +91,9 @@ async def assess(items: list[dict], before_texts: dict[str, str]) -> list[Verdic
     reread = await _ocr_after(items)
     verdicts = []
     for item in items:
+        if item.get("error") == "blur_timeout":
+            verdicts.append(Verdict(False, "가리는 데 너무 오래 걸려 건너뜀"))
+            continue
         if not item.get("after"):
             verdicts.append(Verdict(False, "블러 서버가 사진을 가리지 못함"))
             continue
