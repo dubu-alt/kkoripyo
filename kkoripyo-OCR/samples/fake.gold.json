@@ -1,0 +1,15 @@
+{
+  "note": "가상 인물 정답셋. entity가 같은 항목은 동일 정보로 매칭되어야 함",
+  "items": [
+    {"type": "sns_account", "value": "gildong_hong"},
+    {"type": "name", "value": "홍길동", "entity": "name"},
+    {"type": "name", "value": "Hong Gildong", "entity": "name"},
+    {"type": "student_id", "value": "20261234"},
+    {"type": "affiliation", "value": "한국대학교 컴퓨터공학과"},
+    {"type": "phone", "value": "010-1234-5678"},
+    {"type": "email", "value": "gildong.hong@example.com"},
+    {"type": "other_clue", "value": "재학"},
+    {"type": "other_clue", "value": "2학년"},
+    {"type": "other_clue", "value": "26학번"}
+  ]
+}

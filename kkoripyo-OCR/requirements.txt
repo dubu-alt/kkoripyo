@@ -1,0 +1,10 @@
+pytesseract>=0.3.10
+pillow>=10
+pydantic>=2
+openai>=1.92
+# OCR_ENGINE=paddle 쓸 때만 (GPU 서버는 paddlepaddle-gpu)
+# paddlepaddle>=3.0
+# paddleocr>=3.0
+# API 서버(kkoripyo.server, kkoripyo.api) 띄울 때만
+# fastapi>=0.110
+# uvicorn>=0.29

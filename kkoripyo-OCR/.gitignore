@@ -1,0 +1,12 @@
+# 비밀값
+.env
+
+# 실제 개인정보(테스트 이미지·정답셋·출력) — 절대 커밋 금지
+private/
+out*.json
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.DS_Store

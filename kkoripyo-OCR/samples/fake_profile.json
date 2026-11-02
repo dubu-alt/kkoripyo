@@ -1,0 +1,13 @@
+{
+  "username": "gildong_hong",
+  "full_name": "홍길동",
+  "biography": "한국대학교 컴퓨터공학과 26학번 🎓\n📞 010.1234.5678\n✉️ gildong.hong@example.com",
+  "followers": 120,
+  "followees": 98,
+  "posts": 2,
+  "is_private": false,
+  "recent_posts": [
+    {"shortcode": "FAKE001", "caption": "드디어 학생증 나옴! Hong Gildong 실화냐 ㅋㅋ", "comment_texts": ["길동아 번호 바뀜? 010-1234-5678 맞지?"]},
+    {"shortcode": "FAKE002", "caption": "Life Captured 📸 주말 산책"}
+  ]
+}

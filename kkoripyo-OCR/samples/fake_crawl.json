@@ -1,0 +1,22 @@
+{
+  "id": "req_fake0001",
+  "platform": "instagram",
+  "action": "post",
+  "results": [
+    {
+      "post_id": "FAKE001",
+      "url": "https://www.instagram.com/p/FAKE001/",
+      "text": "드디어 학생증 나옴! Hong Gildong 실화냐 ㅋㅋ 📞 010.1234.5678",
+      "media_type": "image",
+      "author_username": "gildong_hong",
+      "author_name": "홍길동",
+      "posted_at": "2026-03-05T02:41:39+00:00",
+      "image_url": "https://example.com/fake_card.png",
+      "top_comments": [
+        {"text": "길동아 번호 바뀜? 010-1234-5678 맞지?", "author_username": "fake_friend1"},
+        {"text": "한국대학교 컴퓨터공학과 ㅊㅋㅊㅋ", "author_username": "fake_friend2"}
+      ]
+    }
+  ],
+  "count": 1
+}
